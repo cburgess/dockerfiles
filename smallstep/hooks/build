@@ -1,5 +1,5 @@
 #!/bin/bash
 
 docker build --build-arg STEP_CA_VERSION=$STEP_CA_VERSION \
-             --build-args STEP_CLI_VERSION=$STEP_CLI_VERSION \
+             --build-arg STEP_CLI_VERSION=$STEP_CLI_VERSION \
              -f $DOCKERFILE_PATH -t $IMAGE_NAME .
