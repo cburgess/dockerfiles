@@ -1,0 +1,43 @@
+# vim:backspace=2:tabstop=2:shiftwidth=2:softtabstop=2:shiftround:expandtab:ignorecase
+name: 'Build smallstep'
+
+on:
+  pull_request:
+    types: [opened, edited]
+    paths:
+      - 'images/smallstep/*'
+  push:
+    branches:
+      - master
+    tags:
+      - 'releases/smallstep/*'
+    paths:
+      - 'images/smallstep/*'
+
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v1
+      -
+        name: Dockerhub login
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_ACCESS_TOKEN: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+        run: |
+          echo "${DOCKER_ACCESS_TOKEN}" | docker login --username ${DOCKER_USERNAME} --password-stdin
+      -
+        name: Set up Docker Buildx
+        id: buildx
+        uses: crazy-max/ghaction-docker-buildx@v1
+        with:
+          buildx-version: latest
+          qemu-version: latest
+      -
+        name: Build and push image
+        run: |
+              cd images/smallstep \
+              make push
