@@ -38,6 +38,5 @@ jobs:
           qemu-version: latest
       -
         name: Build and push image
-        run: |
-              cd images/smallstep \
-              make push
+        working-directory: images/smallstep
+        run: make push
