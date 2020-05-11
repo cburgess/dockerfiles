@@ -1,0 +1,258 @@
+#!/usr/bin/env bash
+
+# Error exit function
+function die() {
+    printf '%s\n\n' "$1" >&2
+    usage
+    exit 1
+}
+
+# Basic usage info
+function usage() {
+    cat << EOF 1>&2
+Usage: $0
+--no-cache
+    Disable docker build cache
+--load
+    Load the images into the local docker image cache after build.
+--push
+    Push images after build.
+--image-name <image name>
+    Docker image name
+    ex: curl
+--repo <repo>
+    Docker repo to publish too
+    ex: docker.io
+--image-version <version>
+    Docker image version to tag
+    ex: 1.4.1
+--base-image <base image>
+    Upstream image this image is based upon
+    ex: debian:buster-slim
+--build-date <date>
+    Date of this build
+    ex: 2019-06-20T18:22:23Z
+--vcs-url <vcs-url>
+    URL to git repo of this build
+    ex: https://github.com/cburgess/dockerfiles.git
+--vcs-rev <vcs-rev>
+    git revision of this build
+    ex: 5dfd2ef
+--maintainer <maintainer>
+    value for maintainer LABEL
+    ex: "Chet Burgess <cfb@liquidreality.org>"
+--platforms <platforms>
+    Comma seperates list of platforms to build for
+    ex: linux/amd64,linux/arm64
+--extra-tags <extra tags>
+    extra tags to add to the image
+    ex: latest
+-h|-?|--help
+    Print this help and exit.
+EOF
+}
+
+# Call Build
+function call_buildx() {
+    local MAINTAINER=$1
+    shift
+    local BUILDX_ARGS=("$@")
+
+    docker buildx build                         \
+        --build-arg MAINTAINER="${MAINTAINER}"  \
+        ${BUILDX_ARGS[@]}                       \
+        .
+    return $?
+}
+
+# Do arg parsing by hand so we can have nice pretty long options
+NO_CACHE=0
+LOAD_IMAGES=0
+PUSH_IMAGES=0
+while :; do
+    case $1 in
+        -h|-\?|--help)
+            usage
+            exit
+            ;;
+        --no-cache)
+            NO_CACHE=1
+            ;;
+        --load)
+            LOAD_IMAGES=1
+            ;;
+        --push)
+            PUSH_IMAGES=1
+            ;;
+        --image-name)
+            if [ "$2" ]; then
+                IMAGE_NAME=$2
+                shift
+            else
+                die 'ERROR: "--image-name" requires a non-empty option argument.'
+            fi
+            ;;
+        --repo)
+            if [ "$2" ]; then
+                REPO=$2
+                shift
+            else
+                die 'ERROR: "--repo" requires a non-empty option argument.'
+            fi
+            ;;
+        --image-version)
+            if [ "$2" ]; then
+                IMAGE_VERSION=$2
+                shift
+            else
+                die 'ERROR: "--image-version" requires a non-empty option argument.'
+            fi
+            ;;
+        --base-image)
+            if [ "$2" ]; then
+                BASE_IMAGE=$2
+                shift
+            else
+                die 'ERROR: "--base-image" requires a non-empty option argument.'
+            fi
+            ;;
+        --build-date)
+            if [ "$2" ]; then
+                BUILD_DATE=$2
+                shift
+            else
+                die 'ERROR: "--build-date" requires a non-empty option argument.'
+            fi
+            ;;
+        --vcs-url)
+            if [ "$2" ]; then
+                VCS_URL=$2
+                shift
+            else
+                die 'ERROR: "--vcs-url" requires a non-empty option argument.'
+            fi
+            ;;
+        --vcs-rev)
+            if [ "$2" ]; then
+                VCS_REV=$2
+                shift
+            else
+                die 'ERROR: "--vcs-rev" requires a non-empty option argument.'
+            fi
+            ;;
+        --maintainer)
+            if [ "$2" ]; then
+                MAINTAINER=$2
+                shift
+            else
+                die 'ERROR: "--maintainer" requires a non-empty option argument.'
+            fi
+            ;;
+        --platforms)
+            if [ "$2" ]; then
+                PLATFORMS=$2
+                shift
+            else
+                die 'ERROR: "--platforms" requires a non-empty option argument.'
+            fi
+            ;;
+        --extra-tags)
+            if [ "$2" ]; then
+                EXTRA_TAGS=$2
+                shift
+            else
+                die 'ERROR: "--extra-tags" requires a non-empty option argument.'
+            fi
+            ;;
+        --)
+            # End of all options.
+            shift
+            break
+            ;;
+        -?*)
+            printf 'Invalid option: %s\b' "$1" >&2
+            ;;
+        *)
+            # Default case: No more options, so break out of the loop.
+            break
+    esac
+    shift
+done
+
+# Validate required arguments
+IMAGE_NAME_ARG='--image-name'
+REPO_ARG='--repo'
+IMAGE_VERSION_ARG='--image-version'
+BASE_IMAGE_ARG='--base-image'
+BUILD_DATE_ARG='--build-date'
+VCS_URL_ARG='--vcs-url'
+VCS_REV_ARG='--vcs-rev'
+MAINTAINER_ARG='--maintainer'
+ERR=0
+for ARG in IMAGE_NAME REPO IMAGE_VERSION BASE_IMAGE BUILD_DATE VCS_URL VCS_REV MAINTAINER; do
+    if [ "${!ARG}x" = "x" ]; then
+        ERR=1
+        CLI_ARG="${ARG}_ARG"
+        printf 'ERROR: %s required\n' "${!CLI_ARG}"
+    fi
+done
+if [ ${ERR} -ne 0 ]; then
+    die
+fi
+
+# Construct the BUILD_TAG
+BUILD_TAG="${REPO}/${IMAGE_NAME}:${IMAGE_VERSION}"
+
+# Construct our build args
+BUILD_ARGS=()
+for BUILD_ARG in "VCS_URL" \
+                 "VCS_REV" \
+                 "BUILD_TAG" \
+                 "IMAGE_NAME" \
+                 "BASE_IMAGE" \
+                 "BUILD_DATE" \
+                 "IMAGE_VERSION"; do
+    BUILD_ARGS+=("--build-arg ${BUILD_ARG}=${!BUILD_ARG}")
+done
+# Look for any environment variables that begin with CBA_ (container build arg).
+# For each of these we find strip off CBA_ and turn the resulting string into
+# the name of a docker build arg and value become the value.
+for BUILD_ARG in ${!CBA_@}; do
+    BUILD_ARGS+=("--build-arg ${BUILD_ARG#*_}=${!BUILD_ARG}")
+done
+
+
+set -ex
+# Construct our common args
+COMMON_BUILDX_ARGS=("${BUILD_ARGS[@]}" \
+                    "$@" \
+                    "--file docker/Dockerfile" \
+                    "--tag ${BUILD_TAG}")
+for TAG in ${EXTRA_TAGS}; do
+    COMMON_BUILDX_ARGS=("${COMMON_BUILDX_ARGS[@]}" \
+                        "--tag ${REPO}/${IMAGE_NAME}:${TAG}")
+done
+
+# Build the image on all requested platforms.
+BUILDX_ARGS=("${MAINTAINER}" \
+             "--platform ${PLATFORMS}" \
+             "${COMMON_BUILDX_ARGS[@]}")
+if [ ${NO_CACHE} -eq 1 ]; then
+    BUILDX_ARGS=("${BUILDX_ARGS[@]}" "--no-cache")
+fi
+if [ ${PUSH_IMAGES} -eq 1 ]; then
+    BUILDX_ARGS=("${BUILDX_ARGS[@]}" "--push")
+fi
+call_buildx "${BUILDX_ARGS[@]}"
+
+# You can't pass --platform and --load at the same time. So now that we have
+# built the image using --platform we simply call build with the --load flag
+# and all tags we want locally using the cache and without specifying a
+# platform. This will result in the built image from the cache being loaded
+# into the local docker image cache using the local systems platform.
+if [ ${LOAD_IMAGES} -eq 1 ]; then
+    BUILDX_ARGS=("${MAINTAINER}" \
+                 "--load" \
+                 "${COMMON_BUILDX_ARGS[@]}")
+    call_buildx "${BUILDX_ARGS[@]}"
+fi

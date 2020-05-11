@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+# Basic usage info
+function usage() {
+    cat << EOF 1>&2
+Usage: $0 [<options>]
+-p <pattern>
+    Pattern to match on.
+-h
+    Print this help and exit.
+EOF
+}
+
+function no_tag_version() {
+    # Sometimes we can't find an ancestor tag, or we simply don't have one.
+    # So we contstruct one starting from 0.0.0.
+    COUNT=$(git rev-list --count HEAD)
+    VERSION="0.0.0-dev${COUNT}"
+    echo "${VERSION}"
+}
+
+function get_version() {
+    PATTERN=$1
+
+    # If we are operating decrectly on a tag, just return that.
+    DESCRIBE=$(git describe --tags --match "${PATTERN}" --exact-match 2> /dev/null)
+    if [ $? -eq 0 ]; then
+        # Describe will return something that looks like the following
+        # releases/buildpoint/version
+        regex='^releases/(.*)/(.*)$'
+        [[ ${DESCRIBE} =~ $regex ]] || exit 1
+        echo "${BASH_REMATCH[2]}"
+        return
+    fi
+
+    DESCRIBE=$(git describe --tags --match "${PATTERN}" --long 2> /dev/null)
+    # Handle the case where we have no matching tag.
+    if [ $? -ne 0 ]; then
+        no_tag_version
+        return
+    fi
+
+    # Describe will return something that looks like the following
+    # releases/images/version-count-hash
+    regex='^releases/(.*)/(.*)-([0-9]+)-([^-]+)$'
+    [[ ${DESCRIBE} =~ $regex ]] || exit 1
+    TAG_VERSION="${BASH_REMATCH[2]}"
+    COUNT="${BASH_REMATCH[3]}"
+    HASH="${BASH_REMATCH[4]}"
+
+    echo "${TAG_VERSION}-dev${COUNT}"
+}
+
+# Process our args
+while getopts ":hp:d" opt; do
+    case ${opt} in
+        h)
+            usage
+            exit 0
+            ;;
+        p)
+            PATTERN="${OPTARG}"
+            ;;
+        d)
+            set -x
+            ;;
+        \?)
+            echo "Invalid option: -${OPTARG}" >&2
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+get_version "${PATTERN}"

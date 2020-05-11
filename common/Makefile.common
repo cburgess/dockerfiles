@@ -1,0 +1,46 @@
+# vim:backspace=2:tabstop=4:shiftwidth=4:softtabstop=4:shiftround:noexpandtab:ignorecase
+#
+# Common build logic for all containers
+#
+BASH := $(shell which bash)
+SHELL := $(BASH)
+REPO_ROOT := $(shell git rev-parse --show-toplevel)
+CCD := $(REPO_ROOT)/common
+TOOLS := $(REPO_ROOT)/tools
+GET_VERSION := $(TOOLS)/get_version
+GET_REPO_INFO := $(TOOLS)/get_repo_info
+BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+REPO_NAME := $(shell $(GET_REPO_INFO) --repo)
+MAINTAINER ?= "Chet Burgess <cfb@liquidreality.org>"
+DOCKER_REPO ?= docker.io
+DOCKER_USERNAME ?= cfburgess
+DOCKER_REPO_PATH ?= $(DOCKER_REPO)/$(DOCKER_USERNAME)
+VCS_URL := $(shell $(GET_REPO_INFO) --url)
+VCS_REV := $(shell git rev-parse HEAD)
+
+# Construct our platform list
+# We use ?= so that Makefile.vars can override the values.
+DOCKER_BUILD_PLATFORMS ?= linux/amd64,linux/arm64
+
+# Construct our docker build flags.
+# We use ?= so that Makefile.vars can override the values.
+DOCKER_BUILD_FLAGS ?=
+
+# Construct our extra tags
+# We use ?= so that Makefile.vars can override the values.
+DOCKER_EXTRA_TAGS ?= latest
+
+IMAGE_PATH := $(CURDIR)
+IMAGE_NAME := $(shell basename $(IMAGE_PATH))
+
+# The _SHELL_ERROR_ bit at the end is needed because Make cannot detect errors in the 'shell' command
+IMAGE_VERSION := $(shell $(GET_VERSION) -p "releases/$(IMAGE_NAME)/*" || echo '_SHELL_ERROR_')
+
+# Set the name of the docker buildx builder. 
+DOCKER_BUILDER_ID := "$(IMAGE_NAME)_$(IMAGE_VERSION)"
+
+# Check if get_version returned an error. An error is returned by get_version if we are doing a release/tag build,
+# but there is no tag at the hash we are building. If that happens, stop the build and exit immediately.
+ifeq ('$(IMAGE_VERSION)','_SHELL_ERROR_')
+        $(error '$(GET_VERSION) command failed')
+endif

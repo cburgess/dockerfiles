@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+# Error exit function
+function die() {
+    printf '%s\n\n' "$1" >&2
+    usage
+    exit 1
+}
+
+# Basic usage info
+function usage() {
+    cat << EOF 1>&2
+Usage: $0
+--builder <builder_name>
+    Name of the builder to create
+--force
+    If set, recreate the builder if it alread exists.
+-h|-?|--help
+    Print this help and exit.
+EOF
+}
+
+# Do arg parsing by hand so we can have nice pretty long options
+FORCE=0
+while :; do
+    case $1 in
+        -h|-\?|--help)
+            usage
+            exit
+            ;;
+        --builder)
+            if [ "$2" ]; then
+                BUILDER_ID=$2
+                shift
+            else
+                die 'ERROR: "--builder" requires a non-empty option argument.'
+            fi
+            ;;
+        --force)
+            FORCE=1
+            ;;
+        --)
+            # End of all options.
+            shift
+            break
+            ;;
+        -?*)
+            printf 'Invalid option: %s\b' "$1" >&2
+            ;;
+        *)
+            # Default case: No more options, so break out of the loop.
+            break
+    esac
+    shift
+done
+
+# Validate required arguments
+BUILDER_ARG='--builder'
+ERR=0
+for ARG in BUILDER_ID; do
+    if [ "${!ARG}x" = "x" ]; then
+        ERR=1
+        CLI_ARG="${ARG}_ARG"
+        printf 'ERROR: %s required\n' "${!CLI_ARG}"
+    fi
+done
+if [ ${ERR} -ne 0 ]; then
+    die
+fi
+
+if [ ${FORCE} -eq 1 ]; then
+    docker buildx rm "${BUILDER_ID}" > /dev/null 2>&1 || true
+fi
+docker buildx inspect ${BUILDER_ID}
+if [ $? -ne 0 ]; then \
+    docker buildx create --name "${BUILDER_ID}"
+    docker buildx inspect --bootstrap
+fi
+docker buildx use "${BUILDER_ID}"

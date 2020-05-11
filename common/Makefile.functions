@@ -1,0 +1,20 @@
+# vim:backspace=2:tabstop=4:shiftwidth=4:softtabstop=4:shiftround:noexpandtab:ignorecase
+#
+# This file contains various targets that can be used individually by the
+# buildpoints to accomplish common tasks.
+#
+REPO_ROOT := $(shell git rev-parse --show-toplevel)
+CCD := $(REPO_ROOT)/common
+
+# Define all of our targets
+common_files:
+	mkdir -p common_files
+
+common_clean:
+	rmdir common_files/ > /dev/null 2>&1 || true
+
+# Construct our setup and clean dependencies
+SETUP_DEPS :=
+CLEAN_DEPS :=
+
+.PHONY: common_clean

@@ -1,0 +1,8 @@
+# vim:backspace=2:tabstop=4:shiftwidth=4:softtabstop=4:shiftround:noexpandtab:ignorecase
+#
+# Common build logic for debain based containers
+#
+DEBIAN_IMAGE_PATH=docker.io
+DEBIAN_IMAGE_NAME=debian
+DEBIAN_IMAGE_TAG=buster-slim
+DEBIAN_BASE_IMAGE=${DEBIAN_IMAGE_PATH}/${DEBIAN_IMAGE_NAME}:${DEBIAN_IMAGE_TAG}

@@ -1,0 +1,87 @@
+# vim:backspace=2:shiftwidth=4:softtabstop=4:shiftround:noexpandtab:ignorecase
+# This file contains the build logic for build points.
+#
+REPO_ROOT := $(shell git rev-parse --show-toplevel)
+CCD := $(REPO_ROOT)/common
+
+# Source our externally controlled version
+include Makefile.vars
+
+# Include the common config files
+include $(CCD)/Makefile.common
+include $(CCD)/Makefile.functions
+
+# Backwards compatible defaults.
+.DEFAULT_GOAL := build
+default: build
+
+# Setup our build environment
+setup_default: $(SETUP_DEPS)
+	set -e; \
+	$(TOOLS)/create_builder --builder $(DOCKER_BUILDER_ID)
+
+# this is the top level target to build docker images
+build_default: setup
+	set -e; \
+	$(TOOLS)/docker_build \
+		--no-cache \
+		--load \
+		--image-name $(IMAGE_NAME) \
+		--repo $(DOCKER_REPO_PATH) \
+		--image-version $(IMAGE_VERSION) \
+		--base-image $(BASE_IMAGE) \
+		--build-date $(BUILD_DATE) \
+		--vcs-url $(VCS_URL) \
+		--vcs-rev $(VCS_REV) \
+		--maintainer $(MAINTAINER) \
+		--platforms $(DOCKER_BUILD_PLATFORMS) \
+		--extra-tags "$(DOCKER_EXTRA_TAGS)" \
+		-- $(DOCKER_BUILD_FLAGS)
+
+# push the images
+push_default: setup
+	set -e; \
+	$(TOOLS)/docker_build \
+		--push \
+		--image-name $(IMAGE_NAME) \
+		--repo $(DOCKER_REPO_PATH) \
+		--image-version $(IMAGE_VERSION) \
+		--base-image $(BASE_IMAGE) \
+		--build-date $(BUILD_DATE) \
+		--vcs-url $(VCS_URL) \
+		--vcs-rev $(VCS_REV) \
+		--maintainer $(MAINTAINER) \
+		--platforms $(DOCKER_BUILD_PLATFORMS) \
+		--extra-tags "$(DOCKER_EXTRA_TAGS)" \
+		-- $(DOCKER_BUILD_FLAGS)
+
+describe_default:
+	@echo $(DOCKER_REPO_PATH)/$(IMAGE_NAME):$(IMAGE_VERSION)
+	@for EXTRA_TAG in $(DOCKER_EXTRA_TAGS); do \
+		echo $(DOCKER_REPO_PATH)/$(IMAGE_NAME):$$EXTRA_TAG; \
+	done
+
+clean_default: $(CLEAN_DEPS)
+	docker buildx rm $(DOCKER_BUILDER_ID) > /dev/null 2>&1 || true; \
+	docker rmi -f $(DOCKER_REPO_PATH)/$(IMAGE_NAME):$(IMAGE_VERSION) > /dev/null 2>&1 || true; \
+	for EXTRA_TAG in $(DOCKER_EXTRA_TAGS); do \
+		REPO_IMAGE=$(DOCKER_REPO_PATH)/$(IMAGE_NAME); \
+		docker rmi -f $$REPO_IMAGE:$$EXTRA_TAG > /dev/null 2>&1 || true; \
+	done; \
+	docker rmi $(BASE_IMAGE) > /dev/null 2>&1 || true
+
+# Create a target with the top-level name (ex. setup, describe) that points
+# to the ordered list of our actions.
+%: %_pre %_default %_post
+	@ true
+
+# Create a _pre and _post target for the top-level names that is a noop. This
+# allows  per build-point Makefiles to define the steps.
+# the default target.
+%_pre:
+	@ true
+
+%_post:
+	@ true
+
+.PHONY: default setup_default build_default push_default describe_default clean_default

@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+
+# Error exit function
+function die() {
+    printf '%s\n\n' "$1" >&2
+    exit 1
+}
+
+# Basic usage info
+function usage() {
+    cat << EOF 1>&2
+Usage: $0
+--host
+    Return repo host
+--user
+    Return repo user
+--repo
+    Return repo name
+-h|-?|--help
+    Print this help and exit.
+EOF
+}
+
+function get_url() {
+    if [ "${GIT_URL}x" = 'x' ]; then
+        URL=$(git config --get remote.origin.url 2> /dev/null)
+        if [ $? -ne 0 ]; then
+            die 'Unable to get repo URL from git'
+        fi
+    else
+        URL=${GIT_URL}
+    fi
+    echo "${URL}"
+}
+
+function get_element() {
+    ELEMENT=$1
+    URL=$(get_url)
+
+    # Example:
+    #   git@github.com:cburgess/dockerfiles.git
+    #   https://github.com/cburgess/dockerfiles.git
+    regex='^(git@|http://|https://)(.*)(:|/)(.*)/(.*)\.git$'
+    [[ ${URL} =~ $regex ]]
+    if [ "${ELEMENT}" = 'host' ]; then
+        echo ${BASH_REMATCH[2]}
+    elif [ "${ELEMENT}" = 'user' ]; then
+        echo ${BASH_REMATCH[4]}
+    elif [ "${ELEMENT}" = 'repo' ]; then
+        echo ${BASH_REMATCH[5]}
+    fi
+}
+
+
+# Do arg parsing by hand so we can have nice pretty long options
+while :; do
+    case $1 in
+        -h|-\?|--help)
+            usage
+            exit 0
+            ;;
+        --url)
+            get_url
+            exit 0
+            ;;
+        --host)
+            get_element 'host'
+            exit 0
+            ;;
+        --user)
+            get_element 'user'
+            exit 0
+            ;;
+        --repo)
+            get_element 'repo'
+            exit 0
+            ;;
+        --)
+            # End of all options.
+            usage
+            exit 1
+            ;;
+        -?*)
+            printf 'Invalid option: %s\b' "$1" >&2
+            usage
+            exit 1
+            ;;
+        *)
+            # Default case: No more options, so break out of the loop.
+            usage
+            exit 1
+    esac
+    shift
+done
+
+# We should never get here
+usage
+exit 1

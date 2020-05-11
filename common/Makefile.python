@@ -1,0 +1,9 @@
+# vim:backspace=2:tabstop=4:shiftwidth=4:softtabstop=4:shiftround:noexpandtab:ignorecase
+#
+# Common build logic for python based containers
+#
+PYTHON_IMAGE_PATH=docker.io
+PYTHON_IMAGE_NAME=python
+PYTHON_VERSION=3.8.2-slim-buster
+
+PYTHON_BASE_IMAGE=${PYTHON_IMAGE_PATH}/${PYTHON_IMAGE_NAME}:${PYTHON_VERSION}
