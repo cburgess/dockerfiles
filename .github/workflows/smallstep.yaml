@@ -3,9 +3,9 @@ name: 'Build smallstep'
 
 on:
   pull_request:
-    types: [opened, edited]
-    paths:
-      - 'images/smallstep/*'
+#    types: [opened, edited]
+#    paths:
+#      - 'images/smallstep/*'
   push:
     branches:
       - master
@@ -41,7 +41,7 @@ jobs:
         name: Debug Output
         shell: bash
         run: env
-        if: ${{ env.GITHUB_EVENT_NAME == 'pull_request' }}
+#        if: env.GITHUB_EVENT_NAME == 'pull_request'
       -
         name: Build and push image
         working-directory: images/smallstep
