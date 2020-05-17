@@ -11,11 +11,23 @@ Usage: $0 [<options>]
 EOF
 }
 
+function get_pr_num() {
+    VERSION=$1
+    if [ "${GITHUB_EVENT_NAME}" = "pull_request"  ]; then
+        # In a pull request the PR number is element 3.
+        regex='^refs/(.*)/(.*)/(.*)$'
+        [[ ${GITHUB_REF} =~ $regex ]] || exit 1
+        PR_NUM="${BASH_REMATCH[2]}"
+        VERSION="${VERSION}-pr${PR_NUM}"
+    fi
+    echo "${VERSION}"
+}
+
 function no_tag_version() {
     # Sometimes we can't find an ancestor tag, or we simply don't have one.
     # So we contstruct one starting from 0.0.0.
     COUNT=$(git rev-list --count HEAD)
-    VERSION="0.0.0-dev${COUNT}"
+    VERSION=$(get_pr_num "0.0.0-dev${COUNT}")
     echo "${VERSION}"
 }
 
@@ -48,7 +60,8 @@ function get_version() {
     COUNT="${BASH_REMATCH[3]}"
     HASH="${BASH_REMATCH[4]}"
 
-    echo "${TAG_VERSION}-dev${COUNT}"
+    # Add dev and the count to our VERSION string and check if we are in a PR
+    get_pr_num "${TAG_VERSION}-dev${COUNT}"
 }
 
 # Process our args
