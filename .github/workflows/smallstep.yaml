@@ -18,7 +18,7 @@ on:
 jobs:
   premerge:
     runs-on: ubuntu-latest
-    if: gthub.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     steps:
       -
         name: Checkout
