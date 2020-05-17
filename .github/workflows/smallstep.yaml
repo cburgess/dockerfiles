@@ -73,6 +73,14 @@ jobs:
         with:
           buildx-version: latest
           qemu-version: latest
+      - 
+        name: Debug Output
+        shell: bash
+        run: env
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
   release:
     runs-on: ubuntu-latest
 #    if: env.GITHUB_EVENT_NAME == 'release'
@@ -95,3 +103,11 @@ jobs:
         with:
           buildx-version: latest
           qemu-version: latest
+      - 
+        name: Debug Output
+        shell: bash
+        run: env
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
