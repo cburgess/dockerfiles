@@ -16,8 +16,62 @@ on:
 
 
 jobs:
+  premerge:
+    runs-on: ubuntu-latest
+    if: env.GITHUB_EVENT_NAME == 'push_request'
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v1
+      -
+        name: Dockerhub login
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_ACCESS_TOKEN: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          echo "${DOCKER_ACCESS_TOKEN}" | docker login --username ${DOCKER_USERNAME} --password-stdin
+      -
+        name: Set up Docker Buildx
+        id: buildx
+        uses: crazy-max/ghaction-docker-buildx@v1
+        with:
+          buildx-version: latest
+          qemu-version: latest
+      - 
+        name: Debug Output
+        shell: bash
+        run: env
+      -
+        name: Build and push image
+        working-directory: images/smallstep
+        shell: bash
+        run: make build
+  onmerge:
+    runs-on: ubuntu-latest
+    if: env.GITHUB_EVENT_NAME == 'onmerge'
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v1
+      -
+        name: Dockerhub login
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_ACCESS_TOKEN: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          echo "${DOCKER_ACCESS_TOKEN}" | docker login --username ${DOCKER_USERNAME} --password-stdin
+      -
+        name: Set up Docker Buildx
+        id: buildx
+        uses: crazy-max/ghaction-docker-buildx@v1
+        with:
+          buildx-version: latest
+          qemu-version: latest
   release:
     runs-on: ubuntu-latest
+    if: env.GITHUB_EVENT_NAME == 'release'
     steps:
       -
         name: Checkout
