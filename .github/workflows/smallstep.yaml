@@ -18,7 +18,7 @@ on:
 jobs:
   premerge:
     runs-on: ubuntu-latest
-#    if: env.GITHUB_EVENT_NAME == 'pull_request'
+    if: gthub.event_name == 'pull_request'
     steps:
       -
         name: Checkout
@@ -42,6 +42,10 @@ jobs:
         name: Debug Output
         shell: bash
         run: env
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
       -
         name: Build and push image
         working-directory: images/smallstep
@@ -49,7 +53,7 @@ jobs:
         run: make build
   onmerge:
     runs-on: ubuntu-latest
-    if: env.GITHUB_EVENT_NAME == 'onmerge'
+#    if: env.GITHUB_EVENT_NAME == 'onmerge'
     steps:
       -
         name: Checkout
@@ -71,7 +75,7 @@ jobs:
           qemu-version: latest
   release:
     runs-on: ubuntu-latest
-    if: env.GITHUB_EVENT_NAME == 'release'
+#    if: env.GITHUB_EVENT_NAME == 'release'
     steps:
       -
         name: Checkout
@@ -91,12 +95,3 @@ jobs:
         with:
           buildx-version: latest
           qemu-version: latest
-      - 
-        name: Debug Output
-        shell: bash
-        run: env
-      -
-        name: Build and push image
-        working-directory: images/smallstep
-        shell: bash
-        run: make push
